@@ -4,7 +4,8 @@
 # Version : 1.1.2
 # Repo    : https://github.com/matthieua/WOW
 # Website : http://mynameismatthieu.com/wow
-#
+
+lodash = null
 
 
 class Util
@@ -80,8 +81,9 @@ WeakMap = @WeakMap or @MozWeakMap or \
 MutationObserver = @MutationObserver or @WebkitMutationObserver or @MozMutationObserver or \
   class MutationObserver
     constructor: ->
-      console?.warn 'MutationObserver is not supported by your browser.'
-      console?.warn 'WOW.js cannot detect dom mutations, please call .sync() after loading new content.'
+      if (typeof console != 'undefined' && console != null)
+        console.warn 'MutationObserver is not supported by your browser.'
+        console.warn 'WOW.js cannot detect dom mutations, please call .sync() after loading new content.'
 
     @notSupported: true
 
@@ -95,7 +97,8 @@ getComputedStyle = @getComputedStyle or \
       prop.replace(getComputedStyleRX, (_, _char)->
         _char.toUpperCase()
       ) if getComputedStyleRX.test prop
-      el.currentStyle?[prop] or null
+      currentStyle = el.currentStyle
+      `(currentStyle != null ? currentStyle[prop] : void 0) || null`
     @
 getComputedStyleRX = /(\-([a-z]){1})/g
 
@@ -128,8 +131,8 @@ class @WOW
 
   start: =>
     @stopped = false
-    @boxes = (box for box in @element.querySelectorAll(".#{@config.boxClass}"))
-    @all = (box for box in @boxes)
+    @boxes = [].slice.call(@element.querySelectorAll(".#{@config.boxClass}"))
+    @all = @boxes.slice 0
     if @boxes.length
       if @disabled()
         @resetStyle()
@@ -142,7 +145,9 @@ class @WOW
     if @config.live
       new MutationObserver (records) =>
         for record in records
-          @doSync(node) for node in record.addedNodes or []
+          for node in record.addedNodes
+            @doSync(node)
+        undefined
       .observe document.body,
         childList: true
         subtree: true
@@ -170,6 +175,7 @@ class @WOW
         else
           @applyStyle(box, true)
         @scrolled = true
+    undefined
 
   # show box element
   show: (box) ->
@@ -202,7 +208,9 @@ class @WOW
   )()
 
   resetStyle: ->
-    box.style.visibility = 'visible' for box in @boxes
+    for box in @boxes
+      box.style.visibility = 'visible'
+    undefined
 
   resetAnimation: (event) =>
     if event.type.toLowerCase().indexOf('animationend') >= 0
@@ -225,6 +233,7 @@ class @WOW
     for name, value of properties
       elem["#{name}"] = value
       elem["#{vendor}#{name.charAt(0).toUpperCase()}#{name.substr 1}"] = value for vendor in @vendors
+    undefined
   vendorCSS: (elem, property) ->
     style = getComputedStyle(elem)
     result = style.getPropertyCSSValue(property)
@@ -255,11 +264,13 @@ class @WOW
   scrollCallback: =>
     if @scrolled
       @scrolled = false
-      @boxes = for box in @boxes when box
+      results = []
+      for box in @boxes when box
         if @isVisible(box)
           @show(box)
           continue
-        box
+        results.push(box)
+      @boxes = results
       @stop() unless @boxes.length or @config.live
 
 
