@@ -5,9 +5,6 @@
 # Repo    : https://github.com/matthieua/WOW
 # Website : http://mynameismatthieu.com/wow
 
-lodash = null
-
-
 class Util
   extend: (custom, defaults) ->
     custom[key] ?= value for key, value of defaults
@@ -96,6 +93,7 @@ MutationObserver = @MutationObserver or @WebkitMutationObserver or @MozMutationO
 getComputedStyle = @getComputedStyle or \
   (el, pseudo) ->
     @getPropertyValue = (prop) ->
+      getComputedStyleRX = /(\-([a-z]){1})/g
       prop = 'styleFloat' if prop is 'float'
       prop.replace(getComputedStyleRX, (_, _char)->
         _char.toUpperCase()
@@ -103,7 +101,6 @@ getComputedStyle = @getComputedStyle or \
       currentStyle = el.currentStyle
       `(currentStyle != null ? currentStyle[prop] : void 0) || null`
     @
-getComputedStyleRX = /(\-([a-z]){1})/g
 
 class @WOW
   defaults:
@@ -140,7 +137,8 @@ class @WOW
       if @disabled()
         @resetStyle()
       else
-        @applyStyle(box, true) for box in @boxes
+        for box in @boxes
+          @applyStyle(box, true)
     if !@disabled()
       @util().addEvent @config.scrollContainer || window, 'scroll', @scrollHandler
       @util().addEvent window, 'resize', @scrollHandler
