@@ -5,9 +5,7 @@
 // Repo    : https://github.com/matthieua/WOW
 // Website : http://mynameismatthieu.com/wow
 
-let lodash = null;
-
-
+function fact() {
 class Util {
   extend(custom, defaults) {
     for (let key in defaults) { let value = defaults[key];     if (custom[key] == null) { custom[key] = value; } }
@@ -121,6 +119,7 @@ let MutationObserver = this.MutationObserver || this.WebkitMutationObserver || t
 let getComputedStyle = this.getComputedStyle || 
   function(el, pseudo) {
     this.getPropertyValue = function(prop) {
+      let getComputedStyleRX = /(\-([a-z]){1})/g;
       if (prop === 'float') { prop = 'styleFloat'; }
       if (getComputedStyleRX.test(prop)) { prop.replace(getComputedStyleRX, (_, _char)=> _char.toUpperCase()
       ); }
@@ -129,9 +128,8 @@ let getComputedStyle = this.getComputedStyle ||
     };
     return this;
   };
-getComputedStyleRX = /(\-([a-z]){1})/g;
 
-export let WOW = class WOW {
+let WOW = class WOW {
   defaults = {
     boxClass:        'wow',
     animateClass:    'animated',
@@ -175,9 +173,10 @@ export let WOW = class WOW {
       if (this.disabled()) {
         this.resetStyle();
       } else {
-        let box = this.boxes[i];
-        this.applyStyle(box, true); for (var i = 0; i < this.boxes.length; i++) {
-      }
+        for (let i = 0; i < this.boxes.length; i++) {
+          let box = this.boxes[i];
+          this.applyStyle(box, true);
+        }
       }
     }
     if (!this.disabled()) {
@@ -391,3 +390,9 @@ export let WOW = class WOW {
 function __in__(needle, haystack) {
   return haystack.indexOf(needle) >= 0;
 }
+
+return WOW;
+}
+
+const WOW = fact.call(window);
+export { WOW }
