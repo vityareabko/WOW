@@ -32,9 +32,12 @@ class Util
     if elem.dispatchEvent? # W3C DOM
       elem.dispatchEvent(event)
     else if event of elem?
-      elem[event]()
+      evt = elem[event]
+      evt()
     else if "on#{event}" of elem?
-      elem["on#{event}"]()
+      evt = elem["on#{event}"]
+      evt()
+    undefined
 
   addEvent: (elem, event, fn) ->
     if elem.addEventListener? # W3C DOM
