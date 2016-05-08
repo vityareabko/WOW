@@ -276,6 +276,108 @@
     return top;
   }
 
+  function customStyle(box, hidden, duration, delay, iteration) {
+    if (hidden) {
+      this.cacheAnimationName(box);
+    }
+    box.style.visibility = hidden ? 'hidden' : 'visible';
+
+    if (duration) {
+      vendorSet(box.style, { animationDuration: duration });
+    }
+    if (delay) {
+      vendorSet(box.style, { animationDelay: delay });
+    }
+    if (iteration) {
+      vendorSet(box.style, { animationIterationCount: iteration });
+    }
+    vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
+
+    return box;
+  }
+
+  function applyStyle(box, hidden) {
+    var _this = this;
+
+    var duration = box.getAttribute('data-wow-duration');
+    var delay = box.getAttribute('data-wow-delay');
+    var iteration = box.getAttribute('data-wow-iteration');
+
+    return animate(function () {
+      return customStyle.call(_this, box, hidden, duration, delay, iteration);
+    });
+  }
+
+  function resetStyle() {
+    for (var i = 0; i < this.boxes.length; i++) {
+      var box = this.boxes[i];
+      box.style.visibility = 'visible';
+    }
+  }
+
+  function disabled() {
+    return !this.config.mobile && isMobile(navigator.userAgent);
+  }
+
+  function doSync(element) {
+    if (typeof element === 'undefined' || element === null) {
+      element = this.element;
+    }
+    if (element.nodeType !== 1) {
+      return;
+    }
+    element = element.parentNode || element;
+    var iterable = element.querySelectorAll('.' + this.config.boxClass);
+    for (var i = 0; i < iterable.length; i++) {
+      var box = iterable[i];
+      if (!isIn(box, this.all)) {
+        this.boxes.push(box);
+        this.all.push(box);
+        if (this.stopped || disabled.call(this)) {
+          resetStyle.call(this);
+        } else {
+          applyStyle.call(this, box, true);
+        }
+        this.scrolled = true;
+      }
+    }
+  }
+
+  function resetAnimation(event) {
+    if (event.type.toLowerCase().indexOf('animationend') >= 0) {
+      var target = event.target || event.srcElement;
+      target.className = target.className.replace(this.config.animateClass, '').trim();
+    }
+  }
+
+  // show box element
+  function show(box) {
+    applyStyle.call(this, box);
+    box.className = box.className + ' ' + this.config.animateClass;
+    if (this.config.callback != null) {
+      this.config.callback(box);
+    }
+    emitEvent(box, this.wowEvent);
+
+    addEvent(box, 'animationend', this.resetAnimation);
+    addEvent(box, 'oanimationend', this.resetAnimation);
+    addEvent(box, 'webkitAnimationEnd', this.resetAnimation);
+    addEvent(box, 'MSAnimationEnd', this.resetAnimation);
+
+    return box;
+  }
+
+  // check if box is visible
+  function isVisible(box) {
+    var offset = box.getAttribute('data-wow-offset') || this.config.offset;
+    var viewTop = this.config.scrollContainer && this.config.scrollContainer.scrollTop || window.pageYOffset;
+    var viewBottom = viewTop + Math.min(this.element.clientHeight, getInnerHeight()) - offset;
+    var top = offsetTop(box);
+    var bottom = top + box.clientHeight;
+
+    return top <= viewBottom && bottom >= viewTop;
+  }
+
   var WOW = function () {
     function WOW() {
       var options = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
@@ -293,7 +395,7 @@
       };
 
       this.start = this.start.bind(this);
-      this.resetAnimation = this.resetAnimation.bind(this);
+      this.resetAnimation = resetAnimation.bind(this);
       this.scrollHandler = this.scrollHandler.bind(this);
       this.scrollCallback = this.scrollCallback.bind(this);
       this.scrolled = true;
@@ -320,22 +422,22 @@
     }, {
       key: 'start',
       value: function start() {
-        var _this = this;
+        var _this2 = this;
 
         this.stopped = false;
         this.boxes = [].slice.call(this.element.querySelectorAll('.' + this.config.boxClass));
         this.all = this.boxes.slice(0);
         if (this.boxes.length) {
-          if (this.disabled()) {
-            this.resetStyle();
+          if (disabled.call(this)) {
+            resetStyle.call(this);
           } else {
             for (var i = 0; i < this.boxes.length; i++) {
               var box = this.boxes[i];
-              this.applyStyle(box, true);
+              applyStyle.call(this, box, true);
             }
           }
         }
-        if (!this.disabled()) {
+        if (!disabled.call(this)) {
           addEvent(this.config.scrollContainer || window, 'scroll', this.scrollHandler);
           addEvent(window, 'resize', this.scrollHandler);
           this.interval = setInterval(this.scrollCallback, 50);
@@ -346,7 +448,7 @@
               var record = records[j];
               for (var k = 0; k < record.addedNodes.length; k++) {
                 var node = record.addedNodes[k];
-                _this.doSync(node);
+                doSync.call(_this2, node);
               }
             }
             return undefined;
@@ -371,100 +473,8 @@
       key: 'sync',
       value: function sync() {
         if (MutationObserver.notSupported) {
-          this.doSync(this.element);
+          doSync.call(this, this.element);
         }
-      }
-    }, {
-      key: 'doSync',
-      value: function doSync(element) {
-        if (typeof element === 'undefined' || element === null) {
-          element = this.element;
-        }
-        if (element.nodeType !== 1) {
-          return;
-        }
-        element = element.parentNode || element;
-        var iterable = element.querySelectorAll('.' + this.config.boxClass);
-        for (var i = 0; i < iterable.length; i++) {
-          var box = iterable[i];
-          if (!isIn(box, this.all)) {
-            this.boxes.push(box);
-            this.all.push(box);
-            if (this.stopped || this.disabled()) {
-              this.resetStyle();
-            } else {
-              this.applyStyle(box, true);
-            }
-            this.scrolled = true;
-          }
-        }
-      }
-    }, {
-      key: 'show',
-      value: function show(box) {
-        this.applyStyle(box);
-        box.className = box.className + ' ' + this.config.animateClass;
-        if (this.config.callback != null) {
-          this.config.callback(box);
-        }
-        emitEvent(box, this.wowEvent);
-
-        addEvent(box, 'animationend', this.resetAnimation);
-        addEvent(box, 'oanimationend', this.resetAnimation);
-        addEvent(box, 'webkitAnimationEnd', this.resetAnimation);
-        addEvent(box, 'MSAnimationEnd', this.resetAnimation);
-
-        return box;
-      }
-    }, {
-      key: 'applyStyle',
-      value: function applyStyle(box, hidden) {
-        var _this2 = this;
-
-        var duration = box.getAttribute('data-wow-duration');
-        var delay = box.getAttribute('data-wow-delay');
-        var iteration = box.getAttribute('data-wow-iteration');
-
-        return animate(function () {
-          return _this2.customStyle(box, hidden, duration, delay, iteration);
-        });
-      }
-    }, {
-      key: 'resetStyle',
-      value: function resetStyle() {
-        for (var i = 0; i < this.boxes.length; i++) {
-          var box = this.boxes[i];
-          box.style.visibility = 'visible';
-        }
-      }
-    }, {
-      key: 'resetAnimation',
-      value: function resetAnimation(event) {
-        if (event.type.toLowerCase().indexOf('animationend') >= 0) {
-          var target = event.target || event.srcElement;
-          target.className = target.className.replace(this.config.animateClass, '').trim();
-        }
-      }
-    }, {
-      key: 'customStyle',
-      value: function customStyle(box, hidden, duration, delay, iteration) {
-        if (hidden) {
-          this.cacheAnimationName(box);
-        }
-        box.style.visibility = hidden ? 'hidden' : 'visible';
-
-        if (duration) {
-          vendorSet(box.style, { animationDuration: duration });
-        }
-        if (delay) {
-          vendorSet(box.style, { animationDelay: delay });
-        }
-        if (iteration) {
-          vendorSet(box.style, { animationIterationCount: iteration });
-        }
-        vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
-
-        return box;
       }
     }, {
       key: 'cacheAnimationName',
@@ -492,8 +502,8 @@
           for (var i = 0; i < this.boxes.length; i++) {
             var box = this.boxes[i];
             if (box) {
-              if (this.isVisible(box)) {
-                this.show(box);
+              if (isVisible.call(this, box)) {
+                show.call(this, box);
                 continue;
               }
               results.push(box);
@@ -504,22 +514,6 @@
             this.stop();
           }
         }
-      }
-    }, {
-      key: 'isVisible',
-      value: function isVisible(box) {
-        var offset = box.getAttribute('data-wow-offset') || this.config.offset;
-        var viewTop = this.config.scrollContainer && this.config.scrollContainer.scrollTop || window.pageYOffset;
-        var viewBottom = viewTop + Math.min(this.element.clientHeight, getInnerHeight()) - offset;
-        var top = offsetTop(box);
-        var bottom = top + box.clientHeight;
-
-        return top <= viewBottom && bottom >= viewTop;
-      }
-    }, {
-      key: 'disabled',
-      value: function disabled() {
-        return !this.config.mobile && isMobile(navigator.userAgent);
       }
     }]);
 

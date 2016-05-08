@@ -30,7 +30,7 @@ module.exports = function(grunt) {
     },
     babel : {
       options : {
-        presets: ['es2015', 'stage-1'],
+        presets: ['es2015', 'stage-0'],
         plugins: [
           'add-module-exports',
           "transform-es2015-modules-umd"

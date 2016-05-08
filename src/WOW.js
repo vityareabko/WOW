@@ -205,6 +205,93 @@ function offsetTop(element) {
   return top;
 }
 
+function customStyle(box, hidden, duration, delay, iteration) {
+  if (hidden) { this.cacheAnimationName(box); }
+  box.style.visibility = hidden ? 'hidden' : 'visible';
+
+  if (duration) { vendorSet(box.style, { animationDuration: duration }); }
+  if (delay) { vendorSet(box.style, { animationDelay: delay }); }
+  if (iteration) { vendorSet(box.style, { animationIterationCount: iteration }); }
+  vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
+
+  return box;
+}
+
+function applyStyle(box, hidden) {
+  const duration = box.getAttribute('data-wow-duration');
+  const delay = box.getAttribute('data-wow-delay');
+  const iteration = box.getAttribute('data-wow-iteration');
+
+  return animate(() => this::customStyle(box, hidden, duration, delay, iteration));
+}
+
+function resetStyle() {
+  for (let i = 0; i < this.boxes.length; i++) {
+    const box = this.boxes[i];
+    box.style.visibility = 'visible';
+  }
+}
+
+function disabled() {
+  return !this.config.mobile && isMobile(navigator.userAgent);
+}
+
+function doSync(element) {
+  if (typeof element === 'undefined' || element === null) { ({ element } = this); }
+  if (element.nodeType !== 1) { return; }
+  element = element.parentNode || element;
+  const iterable = element.querySelectorAll(`.${this.config.boxClass}`);
+  for (let i = 0; i < iterable.length; i++) {
+    const box = iterable[i];
+    if (!isIn(box, this.all)) {
+      this.boxes.push(box);
+      this.all.push(box);
+      if (this.stopped || this::disabled()) {
+        this::resetStyle();
+      } else {
+        this::applyStyle(box, true);
+      }
+      this.scrolled = true;
+    }
+  }
+}
+
+function resetAnimation(event) {
+  if (event.type.toLowerCase().indexOf('animationend') >= 0) {
+    const target = event.target || event.srcElement;
+    target.className = target.className.replace(this.config.animateClass, '').trim();
+  }
+}
+
+// show box element
+function show(box) {
+  this::applyStyle(box);
+  box.className = `${box.className} ${this.config.animateClass}`;
+  if (this.config.callback != null) { this.config.callback(box); }
+  emitEvent(box, this.wowEvent);
+
+  addEvent(box, 'animationend', this.resetAnimation);
+  addEvent(box, 'oanimationend', this.resetAnimation);
+  addEvent(box, 'webkitAnimationEnd', this.resetAnimation);
+  addEvent(box, 'MSAnimationEnd', this.resetAnimation);
+
+  return box;
+}
+
+// check if box is visible
+function isVisible(box) {
+  const offset = box.getAttribute('data-wow-offset') || this.config.offset;
+  const viewTop = (
+    this.config.scrollContainer && this.config.scrollContainer.scrollTop
+  ) || window.pageYOffset;
+  const viewBottom =
+    viewTop + Math.min(this.element.clientHeight, getInnerHeight()) - offset;
+  const top = offsetTop(box);
+  const bottom = top + box.clientHeight;
+
+  return top <= viewBottom && bottom >= viewTop;
+}
+
 export default class WOW {
   defaults = {
     boxClass: 'wow',
@@ -218,7 +305,7 @@ export default class WOW {
 
   constructor(options = {}) {
     this.start = this.start.bind(this);
-    this.resetAnimation = this.resetAnimation.bind(this);
+    this.resetAnimation = this::resetAnimation;
     this.scrollHandler = this.scrollHandler.bind(this);
     this.scrollCallback = this.scrollCallback.bind(this);
     this.scrolled = true;
@@ -246,16 +333,16 @@ export default class WOW {
     this.boxes = [].slice.call(this.element.querySelectorAll(`.${this.config.boxClass}`));
     this.all = this.boxes.slice(0);
     if (this.boxes.length) {
-      if (this.disabled()) {
-        this.resetStyle();
+      if (this::disabled()) {
+        this::resetStyle();
       } else {
         for (let i = 0; i < this.boxes.length; i++) {
           const box = this.boxes[i];
-          this.applyStyle(box, true);
+          this::applyStyle(box, true);
         }
       }
     }
-    if (!this.disabled()) {
+    if (!this::disabled()) {
       addEvent(this.config.scrollContainer || window, 'scroll', this.scrollHandler);
       addEvent(window, 'resize', this.scrollHandler);
       this.interval = setInterval(this.scrollCallback, 50);
@@ -266,7 +353,7 @@ export default class WOW {
           const record = records[j];
           for (let k = 0; k < record.addedNodes.length; k++) {
             const node = record.addedNodes[k];
-            this.doSync(node);
+            this::doSync(node);
           }
         }
         return undefined;
@@ -290,77 +377,8 @@ export default class WOW {
 
   sync() {
     if (MutationObserver.notSupported) {
-      this.doSync(this.element);
+      this::doSync(this.element);
     }
-  }
-
-  doSync(element) {
-    if (typeof element === 'undefined' || element === null) { ({ element } = this); }
-    if (element.nodeType !== 1) { return; }
-    element = element.parentNode || element;
-    const iterable = element.querySelectorAll(`.${this.config.boxClass}`);
-    for (let i = 0; i < iterable.length; i++) {
-      const box = iterable[i];
-      if (!isIn(box, this.all)) {
-        this.boxes.push(box);
-        this.all.push(box);
-        if (this.stopped || this.disabled()) {
-          this.resetStyle();
-        } else {
-          this.applyStyle(box, true);
-        }
-        this.scrolled = true;
-      }
-    }
-  }
-
-// show box element
-  show(box) {
-    this.applyStyle(box);
-    box.className = `${box.className} ${this.config.animateClass}`;
-    if (this.config.callback != null) { this.config.callback(box); }
-    emitEvent(box, this.wowEvent);
-
-    addEvent(box, 'animationend', this.resetAnimation);
-    addEvent(box, 'oanimationend', this.resetAnimation);
-    addEvent(box, 'webkitAnimationEnd', this.resetAnimation);
-    addEvent(box, 'MSAnimationEnd', this.resetAnimation);
-
-    return box;
-  }
-
-  applyStyle(box, hidden) {
-    const duration = box.getAttribute('data-wow-duration');
-    const delay = box.getAttribute('data-wow-delay');
-    const iteration = box.getAttribute('data-wow-iteration');
-
-    return animate(() => this.customStyle(box, hidden, duration, delay, iteration));
-  }
-
-  resetStyle() {
-    for (let i = 0; i < this.boxes.length; i++) {
-      const box = this.boxes[i];
-      box.style.visibility = 'visible';
-    }
-  }
-
-  resetAnimation(event) {
-    if (event.type.toLowerCase().indexOf('animationend') >= 0) {
-      const target = event.target || event.srcElement;
-      target.className = target.className.replace(this.config.animateClass, '').trim();
-    }
-  }
-
-  customStyle(box, hidden, duration, delay, iteration) {
-    if (hidden) { this.cacheAnimationName(box); }
-    box.style.visibility = hidden ? 'hidden' : 'visible';
-
-    if (duration) { vendorSet(box.style, { animationDuration: duration }); }
-    if (delay) { vendorSet(box.style, { animationDelay: delay }); }
-    if (iteration) { vendorSet(box.style, { animationIterationCount: iteration }); }
-    vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
-
-    return box;
   }
 
   cacheAnimationName(box) {
@@ -384,8 +402,8 @@ export default class WOW {
       for (let i = 0; i < this.boxes.length; i++) {
         const box = this.boxes[i];
         if (box) {
-          if (this.isVisible(box)) {
-            this.show(box);
+          if (this::isVisible(box)) {
+            this::show(box);
             continue;
           }
           results.push(box);
@@ -396,23 +414,5 @@ export default class WOW {
         this.stop();
       }
     }
-  }
-
-  // check if box is visible
-  isVisible(box) {
-    const offset = box.getAttribute('data-wow-offset') || this.config.offset;
-    const viewTop = (
-      this.config.scrollContainer && this.config.scrollContainer.scrollTop
-    ) || window.pageYOffset;
-    const viewBottom =
-      viewTop + Math.min(this.element.clientHeight, getInnerHeight()) - offset;
-    const top = offsetTop(box);
-    const bottom = top + box.clientHeight;
-
-    return top <= viewBottom && bottom >= viewTop;
-  }
-
-  disabled() {
-    return !this.config.mobile && isMobile(navigator.userAgent);
   }
 }
