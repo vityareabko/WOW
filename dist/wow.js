@@ -128,6 +128,20 @@
     return document.documentElement.clientHeight;
   }
 
+  function animateFactory() {
+    function fallback(callback) {
+      callback();
+    }
+
+    function animate(callback) {
+      window.requestAnimationFrame(callback);
+    }
+
+    return 'requestAnimationFrame' in window ? animate : fallback;
+  }
+
+  var animate = animateFactory();
+
   // Minimalistic WeakMap shim, just in case.
   var WeakMap = window.WeakMap || window.MozWeakMap || function () {
     function WeakMap() {
@@ -206,6 +220,62 @@
     };
   };
 
+  var vendors = ['moz', 'webkit'];
+  function vendorSet(elem, properties) {
+    for (var name in properties) {
+      if (properties.hasOwnProperty(name)) {
+        var value = properties[name];
+        elem['' + name] = value;
+        for (var i = 0; i < vendors.length; i++) {
+          var vendor = vendors[i];
+          elem['' + vendor + name.charAt(0).toUpperCase() + name.substr(1)] = value;
+        }
+      }
+    }
+  }
+
+  function vendorCSS(elem, property) {
+    var style = getComputedStyle(elem);
+    var result = style.getPropertyCSSValue(property);
+    for (var i = 0; i < vendors.length; i++) {
+      var vendor = vendors[i];
+      result = result || style.getPropertyCSSValue('-' + vendor + '-' + property);
+    }
+    return result;
+  }
+
+  function animationName(box) {
+    var aName = void 0;
+    try {
+      aName = vendorCSS(box, 'animation-name').cssText;
+    } catch (error) {
+      // Opera, fall back to plain property value
+      aName = getComputedStyle(box).getPropertyValue('animation-name');
+    }
+
+    if (aName === 'none') {
+      return ''; // SVG/Firefox, unable to get animation name?
+    }
+
+    return aName;
+  }
+
+  // Calculate element offset top
+  function offsetTop(element) {
+    // SVG elements don't have an offsetTop in Firefox.
+    // This will use their nearest parent that has an offsetTop.
+    // Also, using ('offsetTop' of element) causes an exception in Firefox.
+    while (element.offsetTop === undefined) {
+      element = element.parentNode;
+    }
+    var top = element.offsetTop;
+    while (element.offsetParent) {
+      element = element.offsetParent;
+      top += element.offsetTop;
+    }
+    return top;
+  }
+
   var WOW = function () {
     function WOW() {
       var options = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
@@ -221,19 +291,6 @@
         callback: null,
         scrollContainer: null
       };
-
-      this.animate = function animateFactory() {
-        if ('requestAnimationFrame' in window) {
-          return function (callback) {
-            return window.requestAnimationFrame(callback);
-          };
-        }
-        return function (callback) {
-          return callback();
-        };
-      }();
-
-      this.vendors = ['moz', 'webkit'];
 
       this.start = this.start.bind(this);
       this.resetAnimation = this.resetAnimation.bind(this);
@@ -368,7 +425,7 @@
         var delay = box.getAttribute('data-wow-delay');
         var iteration = box.getAttribute('data-wow-iteration');
 
-        return this.animate(function () {
+        return animate(function () {
           return _this2.customStyle(box, hidden, duration, delay, iteration);
         });
       }
@@ -379,7 +436,6 @@
           var box = this.boxes[i];
           box.style.visibility = 'visible';
         }
-        return undefined;
       }
     }, {
       key: 'resetAnimation',
@@ -398,66 +454,24 @@
         box.style.visibility = hidden ? 'hidden' : 'visible';
 
         if (duration) {
-          this.vendorSet(box.style, { animationDuration: duration });
+          vendorSet(box.style, { animationDuration: duration });
         }
         if (delay) {
-          this.vendorSet(box.style, { animationDelay: delay });
+          vendorSet(box.style, { animationDelay: delay });
         }
         if (iteration) {
-          this.vendorSet(box.style, { animationIterationCount: iteration });
+          vendorSet(box.style, { animationIterationCount: iteration });
         }
-        this.vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
+        vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
 
         return box;
-      }
-    }, {
-      key: 'vendorSet',
-      value: function vendorSet(elem, properties) {
-        for (var name in properties) {
-          if (properties.hasOwnProperty(name)) {
-            var value = properties[name];
-            elem['' + name] = value;
-            for (var i = 0; i < this.vendors.length; i++) {
-              var vendor = this.vendors[i];
-              elem['' + vendor + name.charAt(0).toUpperCase() + name.substr(1)] = value;
-            }
-          }
-        }
-      }
-    }, {
-      key: 'vendorCSS',
-      value: function vendorCSS(elem, property) {
-        var style = getComputedStyle(elem);
-        var result = style.getPropertyCSSValue(property);
-        for (var i = 0; i < this.vendors.length; i++) {
-          var vendor = this.vendors[i];
-          result = result || style.getPropertyCSSValue('-' + vendor + '-' + property);
-        }
-        return result;
-      }
-    }, {
-      key: 'animationName',
-      value: function animationName(box) {
-        var aName = void 0;
-        try {
-          aName = this.vendorCSS(box, 'animation-name').cssText;
-        } catch (error) {
-          // Opera, fall back to plain property value
-          aName = getComputedStyle(box).getPropertyValue('animation-name');
-        }
-
-        if (aName === 'none') {
-          return ''; // SVG/Firefox, unable to get animation name?
-        }
-
-        return aName;
       }
     }, {
       key: 'cacheAnimationName',
       value: function cacheAnimationName(box) {
         // https://bugzilla.mozilla.org/show_bug.cgi?id=921834
         // box.dataset is not supported for SVG elements in Firefox
-        return this.animationNameCache.set(box, this.animationName(box));
+        return this.animationNameCache.set(box, animationName(box));
       }
     }, {
       key: 'cachedAnimationName',
@@ -492,28 +506,12 @@
         }
       }
     }, {
-      key: 'offsetTop',
-      value: function offsetTop(element) {
-        // SVG elements don't have an offsetTop in Firefox.
-        // This will use their nearest parent that has an offsetTop.
-        // Also, using ('offsetTop' of element) causes an exception in Firefox.
-        while (element.offsetTop === undefined) {
-          element = element.parentNode;
-        }
-        var top = element.offsetTop;
-        while (element.offsetParent) {
-          element = element.offsetParent;
-          top += element.offsetTop;
-        }
-        return top;
-      }
-    }, {
       key: 'isVisible',
       value: function isVisible(box) {
         var offset = box.getAttribute('data-wow-offset') || this.config.offset;
         var viewTop = this.config.scrollContainer && this.config.scrollContainer.scrollTop || window.pageYOffset;
         var viewBottom = viewTop + Math.min(this.element.clientHeight, getInnerHeight()) - offset;
-        var top = this.offsetTop(box);
+        var top = offsetTop(box);
         var bottom = top + box.clientHeight;
 
         return top <= viewBottom && bottom >= viewTop;

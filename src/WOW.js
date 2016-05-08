@@ -69,6 +69,20 @@ function getInnerHeight() {
   return document.documentElement.clientHeight;
 }
 
+function animateFactory() {
+  function fallback(callback) {
+    callback();
+  }
+
+  function animate(callback) {
+    window.requestAnimationFrame(callback);
+  }
+
+  return 'requestAnimationFrame' in window ? animate : fallback;
+}
+
+const animate = animateFactory();
+
 // Minimalistic WeakMap shim, just in case.
 const WeakMap = window.WeakMap || window.MozWeakMap ||
 class WeakMap {
@@ -136,6 +150,61 @@ function getComputedStyle(el) {
   };
 };
 
+const vendors = ['moz', 'webkit'];
+function vendorSet(elem, properties) {
+  for (const name in properties) {
+    if (properties.hasOwnProperty(name)) {
+      const value = properties[name];
+      elem[`${name}`] = value;
+      for (let i = 0; i < vendors.length; i++) {
+        const vendor = vendors[i];
+        elem[`${vendor}${name.charAt(0).toUpperCase()}${name.substr(1)}`] = value;
+      }
+    }
+  }
+}
+
+function vendorCSS(elem, property) {
+  const style = getComputedStyle(elem);
+  let result = style.getPropertyCSSValue(property);
+  for (let i = 0; i < vendors.length; i++) {
+    const vendor = vendors[i];
+    result = result || style.getPropertyCSSValue(`-${vendor}-${property}`);
+  }
+  return result;
+}
+
+function animationName(box) {
+  let aName;
+  try {
+    aName = vendorCSS(box, 'animation-name').cssText;
+  } catch (error) { // Opera, fall back to plain property value
+    aName = getComputedStyle(box).getPropertyValue('animation-name');
+  }
+
+  if (aName === 'none') {
+    return '';  // SVG/Firefox, unable to get animation name?
+  }
+
+  return aName;
+}
+
+// Calculate element offset top
+function offsetTop(element) {
+  // SVG elements don't have an offsetTop in Firefox.
+  // This will use their nearest parent that has an offsetTop.
+  // Also, using ('offsetTop' of element) causes an exception in Firefox.
+  while (element.offsetTop === undefined) {
+    element = element.parentNode;
+  }
+  let top = element.offsetTop;
+  while (element.offsetParent) {
+    element = element.offsetParent;
+    top += element.offsetTop;
+  }
+  return top;
+}
+
 export default class WOW {
   defaults = {
     boxClass: 'wow',
@@ -157,7 +226,7 @@ export default class WOW {
     if (options.scrollContainer != null) {
       this.config.scrollContainer = document.querySelector(options.scrollContainer);
     }
-  // Map of elements to animation names:
+    // Map of elements to animation names:
     this.animationNameCache = new WeakMap();
     this.wowEvent = createEvent(this.config.boxClass);
   }
@@ -265,22 +334,14 @@ export default class WOW {
     const delay = box.getAttribute('data-wow-delay');
     const iteration = box.getAttribute('data-wow-iteration');
 
-    return this.animate(() => this.customStyle(box, hidden, duration, delay, iteration));
+    return animate(() => this.customStyle(box, hidden, duration, delay, iteration));
   }
-
-  animate = (function animateFactory() {
-    if ('requestAnimationFrame' in window) {
-      return callback => window.requestAnimationFrame(callback);
-    }
-    return callback => callback();
-  }());
 
   resetStyle() {
     for (let i = 0; i < this.boxes.length; i++) {
       const box = this.boxes[i];
       box.style.visibility = 'visible';
     }
-    return undefined;
   }
 
   resetAnimation(event) {
@@ -294,56 +355,18 @@ export default class WOW {
     if (hidden) { this.cacheAnimationName(box); }
     box.style.visibility = hidden ? 'hidden' : 'visible';
 
-    if (duration) { this.vendorSet(box.style, { animationDuration: duration }); }
-    if (delay) { this.vendorSet(box.style, { animationDelay: delay }); }
-    if (iteration) { this.vendorSet(box.style, { animationIterationCount: iteration }); }
-    this.vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
+    if (duration) { vendorSet(box.style, { animationDuration: duration }); }
+    if (delay) { vendorSet(box.style, { animationDelay: delay }); }
+    if (iteration) { vendorSet(box.style, { animationIterationCount: iteration }); }
+    vendorSet(box.style, { animationName: hidden ? 'none' : this.cachedAnimationName(box) });
 
     return box;
-  }
-
-  vendors = ['moz', 'webkit'];
-  vendorSet(elem, properties) {
-    for (const name in properties) {
-      if (properties.hasOwnProperty(name)) {
-        const value = properties[name];
-        elem[`${name}`] = value;
-        for (let i = 0; i < this.vendors.length; i++) {
-          const vendor = this.vendors[i];
-          elem[`${vendor}${name.charAt(0).toUpperCase()}${name.substr(1)}`] = value;
-        }
-      }
-    }
-  }
-  vendorCSS(elem, property) {
-    const style = getComputedStyle(elem);
-    let result = style.getPropertyCSSValue(property);
-    for (let i = 0; i < this.vendors.length; i++) {
-      const vendor = this.vendors[i];
-      result = result || style.getPropertyCSSValue(`-${vendor}-${property}`);
-    }
-    return result;
-  }
-
-  animationName(box) {
-    let aName;
-    try {
-      aName = this.vendorCSS(box, 'animation-name').cssText;
-    } catch (error) { // Opera, fall back to plain property value
-      aName = getComputedStyle(box).getPropertyValue('animation-name');
-    }
-
-    if (aName === 'none') {
-      return '';  // SVG/Firefox, unable to get animation name?
-    }
-
-    return aName;
   }
 
   cacheAnimationName(box) {
   // https://bugzilla.mozilla.org/show_bug.cgi?id=921834
   // box.dataset is not supported for SVG elements in Firefox
-    return this.animationNameCache.set(box, this.animationName(box));
+    return this.animationNameCache.set(box, animationName(box));
   }
   cachedAnimationName(box) {
     return this.animationNameCache.get(box);
@@ -375,24 +398,7 @@ export default class WOW {
     }
   }
 
-
-  // Calculate element offset top
-  offsetTop(element) {
-    // SVG elements don't have an offsetTop in Firefox.
-    // This will use their nearest parent that has an offsetTop.
-    // Also, using ('offsetTop' of element) causes an exception in Firefox.
-    while (element.offsetTop === undefined) {
-      element = element.parentNode;
-    }
-    let top = element.offsetTop;
-    while (element.offsetParent) {
-      element = element.offsetParent;
-      top += element.offsetTop;
-    }
-    return top;
-  }
-
-// check if box is visible
+  // check if box is visible
   isVisible(box) {
     const offset = box.getAttribute('data-wow-offset') || this.config.offset;
     const viewTop = (
@@ -400,7 +406,7 @@ export default class WOW {
     ) || window.pageYOffset;
     const viewBottom =
       viewTop + Math.min(this.element.clientHeight, getInnerHeight()) - offset;
-    const top = this.offsetTop(box);
+    const top = offsetTop(box);
     const bottom = top + box.clientHeight;
 
     return top <= viewBottom && bottom >= viewTop;
