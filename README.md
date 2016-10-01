@@ -81,7 +81,8 @@ var wow = new WOW(
       // the callback is fired every time an animation is started
       // the argument that is passed in is the DOM node being animated
     },
-    scrollContainer: null // optional scroll container selector, otherwise use window
+    scrollContainer: null,    // optional scroll container selector, otherwise use window,
+    resetAnimation: true,     // reset animation on end (default is true)
   }
 );
 wow.init();
