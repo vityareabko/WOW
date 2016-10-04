@@ -64,18 +64,20 @@ title: wow.js — Documentation
                     <p><strong>animateClass: </strong>Class name that triggers the CSS animations (’animated’ by default for the animate.css library)</p>
                     <p><strong>offset: </strong>Define the distance between the bottom of browser viewport and the top of hidden box.<br>When the user scrolls and reach this distance the hidden box is revealed. </p>
                     <p><strong>mobile: </strong>Turn on/off wow.js on mobile devices. </p>
-                    <p><strong>live: </strong>consatantly check for new WOW elements on the page. </p><br>
+                    <p><strong>live: </strong>consatantly check for new WOW elements on the page.</p>
+                    <p><strong>resetAnimation:</strong> Turn on/off the animation reset on ends.</p>
+                    <br>
                     <pre>
-                      wow = new WOW(
-                      {
+                    var wow = new WOW({
                       boxClass:     'wow',      // default
                       animateClass: 'animated', // default
                       offset:       0,          // default
                       mobile:       true,       // default
-                      live:         true        // default
-                    }
-                    )
-                    wow.init();</pre>
+                      live:         true,       // default
+                      resetAnimation: true,     // default
+                    });
+                    wow.init();
+                    </pre>
                   </div>
                 </div>
               </div>
