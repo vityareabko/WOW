@@ -1,5 +1,19 @@
 # WOW.js [![Build Status](https://secure.travis-ci.org/graingert/WOW.svg?branch=master)](http://travis-ci.org/graingert/WOW)
 
+Temporary deprecation:
+======================
+
+wow.js is temporarily deprecated in favour of AOS (Animate on Scroll). Feel free to ignore the warning if you can't use AOS.
+
+Plans for 3.0 include:
+
+* Breaking out the shims into an optional module
+* Using the AOS approach for most functionality
+* Remain completely backwards compatible and a drop-in replacement for GPL wowjs, but issue warning on durations of higher granularity than 50ms
+or longer than 3s
+* Detect Firefox for Android as mobile.
+
+
 Reveal CSS animation as you scroll down a page.
 By default, you can use it to trigger [animate.css](https://github.com/daneden/animate.css) animations.
 But you can easily change the settings to your favorite animation library.
@@ -81,7 +95,8 @@ var wow = new WOW(
       // the callback is fired every time an animation is started
       // the argument that is passed in is the DOM node being animated
     },
-    scrollContainer: null // optional scroll container selector, otherwise use window
+    scrollContainer: null,    // optional scroll container selector, otherwise use window,
+    resetAnimation: true,     // reset animation on end (default is true)
   }
 );
 wow.init();

@@ -219,7 +219,8 @@
         mobile: true,
         live: true,
         callback: null,
-        scrollContainer: null
+        scrollContainer: null,
+        resetAnimation: true
       };
 
       this.animate = function animateFactory() {
@@ -352,10 +353,12 @@
         }
         emitEvent(box, this.wowEvent);
 
-        addEvent(box, 'animationend', this.resetAnimation);
-        addEvent(box, 'oanimationend', this.resetAnimation);
-        addEvent(box, 'webkitAnimationEnd', this.resetAnimation);
-        addEvent(box, 'MSAnimationEnd', this.resetAnimation);
+        if (this.config.resetAnimation) {
+          addEvent(box, 'animationend', this.resetAnimation);
+          addEvent(box, 'oanimationend', this.resetAnimation);
+          addEvent(box, 'webkitAnimationEnd', this.resetAnimation);
+          addEvent(box, 'MSAnimationEnd', this.resetAnimation);
+        }
 
         return box;
       }
